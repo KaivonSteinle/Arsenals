@@ -1,0 +1,471 @@
+---
+title: "Arsenal Grades"
+output: html_document
+---
+
+```{r}
+#Arsenal Scores
+
+Pitching <- read.csv("Pitching.csv")
+View(Pitching)
+
+set.seed(123)
+
+indexes <- sample(1:nrow(Pitching), size = 0.25*nrow(Pitching)) 
+test <- Pitching[indexes,] #25%
+train <- Pitching[-indexes,] #75%
+View(Pitching)
+
+
+#Creating a dataframe of just fastballs
+fb <- Pitching %>% filter(!is.na(Spin_FB) & !is.na(SwStr_FB) & !is.na(Rel_X_FB) & !is.na(Rel_Z_FB) & !is.na(Extension_FB) & !is.na(Max_Velo_FB) & !is.na(Avg_Velo_FB) & !is.na(H_Break_FB) & !is.na(V_Break_FB))
+fbl <- Pitching %>% filter(!is.na(Spin_FB) & !is.na(SwStr_FB) & !is.na(Rel_X_FB) & !is.na(Rel_Z_FB) & !is.na(Extension_FB) & !is.na(Max_Velo_FB) & !is.na(Avg_Velo_FB) & !is.na(H_Break_FB) & !is.na(V_Break_FB) & Handedness == "L")
+fbr <- Pitching %>% filter(!is.na(Spin_FB) & !is.na(SwStr_FB) & !is.na(Rel_X_FB) & !is.na(Rel_Z_FB) & !is.na(Extension_FB) & !is.na(Max_Velo_FB) & !is.na(Avg_Velo_FB) & !is.na(H_Break_FB) & !is.na(V_Break_FB) & Handedness == "R")
+test_fbl <- Pitching %>% filter(!is.na(Spin_FB) & !is.na(SwStr_FB) & !is.na(Rel_X_FB) & !is.na(Rel_Z_FB) & !is.na(Extension_FB) & !is.na(Max_Velo_FB) & !is.na(Avg_Velo_FB) & !is.na(H_Break_FB) & !is.na(V_Break_FB) & Handedness == "L")
+test_fbr <- Pitching %>% filter(!is.na(Spin_FB) & !is.na(SwStr_FB) & !is.na(Rel_X_FB) & !is.na(Rel_Z_FB) & !is.na(Extension_FB) & !is.na(Max_Velo_FB) & !is.na(Avg_Velo_FB) & !is.na(H_Break_FB) & !is.na(V_Break_FB) & Handedness == "R")
+
+#RF for FB SwStr
+trControl <- trainControl(method = "cv", number = 10)
+set.seed(123)
+fb_swstr_rfl <- caret::train(SwStr_FB ~  Avg_Velo_FB + H_Break_FB + V_Break_FB + Rel_Z_FB, data = fbl,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE)
+fb_swstr_rfr <- caret::train(SwStr_FB ~  Avg_Velo_FB + H_Break_FB + V_Break_FB + Rel_Z_FB, data = fbr,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE)
+fb_rf <- caret::train(SwStr_FB ~  Avg_Velo_FB + H_Break_FB + V_Break_FB + Rel_Z_FB + Rel_X_FB, data = fb,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE)
+fb_rf
+fb_swstr_rfl
+fb_swstr_rfr
+varImp(fb_rf)
+varImp(fb_swstr_rfl)
+varImp(fb_swstr_rfr)
+
+#Analyze the SwStr RF
+pred_p <- predict(object = fb_swstr_rfr, newdata = test_fbr)
+caret::RMSE(test_fbr$SwStr_FB, pred_p)
+caret::MAE(test_fbr$SwStr_FB, pred_p)
+
+pred_p <- predict(object = fb_swstr_rfl, newdata = test_fbl)
+caret::RMSE(test_fbl$SwStr_FB, pred_p)
+caret::MAE(test_fbl$SwStr_FB, pred_p)
+
+#Predictions for people
+fbl$swstr_fb_pred <- predict(object = fb_swstr_rfl, newdata = fbl)
+fbl <- fbl[, c("pitcher", "player_name", "year", "Handedness", "player_age", "n", "p_formatted_ip", "p_k_percent", "p_bb_percent", "xwoba", "xwobacon", "z_swing_miss_percent", "in_zone_percent", "whiff_percent", "groundballs_percent", "flyballs_percent", "n_fastball_formatted", "N_FB", "Rel_X_FB", "Rel_Z_FB", "Extension_FB", "Max_Velo_FB", "Avg_Velo_FB", "Spin_FB", "H_Break_FB", "V_Break_FB", "xwOBA_FB", "SwStr_FB", "CSW_FB", "swstr_fb_pred")]
+fbr$swstr_fb_pred <- predict(object = fb_swstr_rfr, newdata = fbr)
+fbr <- fbr[, c("pitcher", "player_name", "year", "Handedness", "player_age", "n", "p_formatted_ip", "p_k_percent", "p_bb_percent", "xwoba", "xwobacon", "z_swing_miss_percent", "in_zone_percent", "whiff_percent", "groundballs_percent", "flyballs_percent", "n_fastball_formatted", "N_FB", "Rel_X_FB", "Rel_Z_FB", "Extension_FB", "Max_Velo_FB", "Avg_Velo_FB", "Spin_FB", "H_Break_FB", "V_Break_FB", "xwOBA_FB", "SwStr_FB", "CSW_FB", "swstr_fb_pred")]
+fb <- rbind(fbl, fbr)
+
+#Alternative way of doing it all together
+fb$swstr_fb_pred <- predict(object = fb_rf, newdata = fb)
+fb <- fb[, c("pitcher", "player_name", "year", "Handedness", "player_age", "n", "p_formatted_ip", "p_k_percent", "p_bb_percent", "xwoba", "xwobacon", "z_swing_miss_percent", "in_zone_percent", "whiff_percent", "groundballs_percent", "flyballs_percent", "n_fastball_formatted", "N_FB", "Rel_X_FB", "Rel_Z_FB", "Extension_FB", "Max_Velo_FB", "Avg_Velo_FB", "Spin_FB", "H_Break_FB", "V_Break_FB", "xwOBA_FB", "SwStr_FB", "CSW_FB", "swstr_fb_pred")]
+View(fb)
+
+
+
+#Creating a dataframe of just Changeups: 
+ch <- Pitching %>% filter(!is.na(Spin_CH) & !is.na(CSW_CH) & !is.na(Rel_X_CH) & !is.na(Rel_Z_CH) & !is.na(Extension_CH) & !is.na(Max_Velo_CH) & !is.na(Avg_Velo_CH) & !is.na(H_Break_CH) & !is.na(V_Break_CH))
+chl <- Pitching %>% filter(!is.na(Spin_CH) & !is.na(CSW_CH) & !is.na(Rel_X_CH) & !is.na(Rel_Z_CH) & !is.na(Extension_CH) & !is.na(Max_Velo_CH) & !is.na(Avg_Velo_CH) & !is.na(H_Break_CH) & !is.na(V_Break_CH) & Handedness == "L")
+chr <- Pitching %>% filter(!is.na(Spin_CH) & !is.na(CSW_CH) & !is.na(Rel_X_CH) & !is.na(Rel_Z_CH) & !is.na(Extension_CH) & !is.na(Max_Velo_CH) & !is.na(Avg_Velo_CH) & !is.na(H_Break_CH) & !is.na(V_Break_CH) & Handedness == "R")
+test_chl <- test %>% filter(!is.na(Spin_CH) & !is.na(CSW_CH) & !is.na(Rel_X_CH) & !is.na(Rel_Z_CH) & !is.na(Extension_CH) & !is.na(Max_Velo_CH) & !is.na(Avg_Velo_CH) & !is.na(H_Break_CH) & !is.na(V_Break_CH) & Handedness == "L")
+test_chr <- test %>% filter(!is.na(Spin_CH) & !is.na(CSW_CH) & !is.na(Rel_X_CH) & !is.na(Rel_Z_CH) & !is.na(Extension_CH) & !is.na(Max_Velo_CH) & !is.na(Avg_Velo_CH) & !is.na(H_Break_CH) & !is.na(V_Break_CH) & Handedness == "R")
+
+#RF for CH SwStr
+trControl <- trainControl(method = "cv", number = 10)
+ch_swstr_rfl <- caret::train(SwStr_CH ~ Avg_Velo_CH + H_Break_CH + V_Break_CH, data = chl,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+ch_swstr_rfr <- caret::train(SwStr_CH ~ Avg_Velo_CH + H_Break_CH + V_Break_CH, data = chr,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+ch_rf <- caret::train(SwStr_CH ~ Avg_Velo_CH + H_Break_CH + V_Break_CH + Rel_Z_CH + Rel_X_CH, data = ch,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+ch_rf
+ch_swstr_rfl
+fb_xwoba_rfr
+varImp(ch_swstr_rfl)
+varImp(ch_swstr_rfr)
+varImp(ch_rf)
+
+#Analyze the SwStr RF
+pred_p <- predict(object = ch_swstr_rfl, newdata = test_chl)
+caret::RMSE(test_chl$SwStr_CH, pred_p)
+caret::MAE(test_chl$SwStr_CH, pred_p)
+
+pred_p <- predict(object = ch_swstr_rfr, newdata = test_chr)
+caret::RMSE(test_chr$SwStr_CH, pred_p)
+caret::MAE(test_chr$SwStr_CH, pred_p)
+
+#Predictions for people
+chr$swstr_ch_pred <- predict(object = ch_swstr_rfr, newdata = chr)
+chr <- chr[, c("pitcher", "player_name", "year", "n_offspeed_formatted", "n_ch_formatted", "N_CH", "Rel_X_CH", "Rel_Z_CH", "Extension_CH", "Max_Velo_CH", "Avg_Velo_CH", "Spin_CH", "H_Break_CH", "V_Break_CH", "xwOBA_CH", "SwStr_CH", "CSW_CH", "swstr_ch_pred")]
+chl$swstr_ch_pred <- predict(object = ch_swstr_rfl, newdata = chl)
+chl <- chl[, c("pitcher", "player_name", "year", "n_offspeed_formatted", "n_ch_formatted", "N_CH", "Rel_X_CH", "Rel_Z_CH", "Extension_CH", "Max_Velo_CH", "Avg_Velo_CH", "Spin_CH", "H_Break_CH", "V_Break_CH", "xwOBA_CH", "SwStr_CH", "CSW_CH", "swstr_ch_pred")]
+ch <- rbind(chl, chr)
+ch$swstr_ch_pred <- predict(object = ch_rf, newdata = ch)
+ch <- ch[, c("pitcher", "player_name", "year", "n_offspeed_formatted", "n_ch_formatted", "N_CH", "Rel_X_CH", "Rel_Z_CH", "Extension_CH", "Max_Velo_CH", "Avg_Velo_CH", "Spin_CH", "H_Break_CH", "V_Break_CH", "xwOBA_CH", "SwStr_CH", "CSW_CH", "swstr_ch_pred")]
+View(ch)
+
+
+
+#Creating a dataframe of just Sliders
+sl <- Pitching %>% filter(!is.na(Spin_SL) & !is.na(CSW_SL) & !is.na(Rel_X_SL) & !is.na(Rel_Z_SL) & !is.na(Extension_SL) & !is.na(Max_Velo_SL) & !is.na(Avg_Velo_SL) & !is.na(H_Break_SL) & !is.na(V_Break_SL))
+slr <- Pitching %>% filter(!is.na(Spin_SL) & !is.na(CSW_SL) & !is.na(Rel_X_SL) & !is.na(Rel_Z_SL) & !is.na(Extension_SL) & !is.na(Max_Velo_SL) & !is.na(Avg_Velo_SL) & !is.na(H_Break_SL) & !is.na(V_Break_SL) & Handedness == "R")
+sll <- Pitching %>% filter(!is.na(Spin_SL) & !is.na(CSW_SL) & !is.na(Rel_X_SL) & !is.na(Rel_Z_SL) & !is.na(Extension_SL) & !is.na(Max_Velo_SL) & !is.na(Avg_Velo_SL) & !is.na(H_Break_SL) & !is.na(V_Break_SL) & Handedness == "L")
+test_slr <- test %>% filter(!is.na(Spin_SL) & !is.na(CSW_SL) & !is.na(Rel_X_SL) & !is.na(Rel_Z_SL) & !is.na(Extension_SL) & !is.na(Max_Velo_SL) & !is.na(Avg_Velo_SL) & !is.na(H_Break_SL) & !is.na(V_Break_SL) & Handedness == "R")
+test_sll <- test %>% filter(!is.na(Spin_SL) & !is.na(CSW_SL) & !is.na(Rel_X_SL) & !is.na(Rel_Z_SL) & !is.na(Extension_SL) & !is.na(Max_Velo_SL) & !is.na(Avg_Velo_SL) & !is.na(H_Break_SL) & !is.na(V_Break_SL) & Handedness == "L")
+
+#RF for SL SwStr
+trControl <- trainControl(method = "cv", ##The method used to resample the dataset
+                          number = 10)
+sl_swstr_rfl <- caret::train(SwStr_SL ~ Avg_Velo_SL + H_Break_SL + V_Break_SL, data = sll,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+sl_swstr_rfr <- caret::train(SwStr_SL ~ Avg_Velo_SL + H_Break_SL + V_Break_SL, data = slr,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+sl_rf <- caret::train(SwStr_SL ~ Avg_Velo_SL + H_Break_SL + V_Break_SL + Rel_Z_CH + Rel_X_CH, data = sl,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+sl_rf
+sl_swstr_rfl
+sl_swstr_rfr
+varImp(sl_rf)
+varImp(sl_swstr_rfl)
+varImp(sl_swstr_rfr)
+
+#Analyze the SwStr RF
+pred_p <- predict(object = sl_swstr_rfl, newdata = sll)
+caret::RMSE(test_sll$SwStr_SL, pred_p)
+caret::MAE(test_sll$SwStr_SL, pred_p)
+
+pred_p <- predict(object = sl_swstr_rfr, newdata = test_slr)
+caret::RMSE(test_slr$SwStr_SL, pred_p)
+caret::MAE(test_slr$SwStr_SL, pred_p)
+
+#Predictions for people
+slr$swstr_sl_pred <- predict(object = sl_swstr_rfr, newdata = slr)
+slr <- slr[, c("pitcher", "player_name", "year", "n_breaking_formatted.x.x", "n_sl_formatted", "N_SL", "Rel_X_SL", "Rel_Z_SL", "Extension_SL", "Max_Velo_SL", "Avg_Velo_SL", "Spin_SL", "H_Break_SL", "V_Break_SL", "xwOBA_SL", "SwStr_SL", "CSW_SL", "swstr_sl_pred")]
+sll$swstr_sl_pred <- predict(object = sl_swstr_rfl, newdata = sll)
+sll <- sll[, c("pitcher", "player_name", "year", "n_breaking_formatted.x.x", "n_sl_formatted", "N_SL", "Rel_X_SL", "Rel_Z_SL", "Extension_SL", "Max_Velo_SL", "Avg_Velo_SL", "Spin_SL", "H_Break_SL", "V_Break_SL", "xwOBA_SL", "SwStr_SL", "CSW_SL", "swstr_sl_pred")]
+sl <- rbind(sll, slr)
+sl$swstr_sl_pred <- predict(object = sl_rf, newdata = sl)
+sl <- sl[, c("pitcher", "player_name", "year", "n_breaking_formatted.x.x", "n_sl_formatted", "N_SL", "Rel_X_SL", "Rel_Z_SL", "Extension_SL", "Max_Velo_SL", "Avg_Velo_SL", "Spin_SL", "H_Break_SL", "V_Break_SL", "xwOBA_SL", "SwStr_SL", "CSW_SL", "swstr_sl_pred")]
+View(sl)
+
+
+#Creating a dataframe of just Curveballs
+cb <- Pitching %>% filter(!is.na(Spin_CB) & !is.na(CSW_CB) & !is.na(Rel_X_CB) & !is.na(Rel_Z_CB) & !is.na(Extension_CB) & !is.na(Max_Velo_CB) & !is.na(Avg_Velo_CB) & !is.na(H_Break_CB) & !is.na(V_Break_CB))
+cbr <- Pitching %>% filter(!is.na(Spin_CB) & !is.na(CSW_CB) & !is.na(Rel_X_CB) & !is.na(Rel_Z_CB) & !is.na(Extension_CB) & !is.na(Max_Velo_CB) & !is.na(Avg_Velo_CB) & !is.na(H_Break_CB) & !is.na(V_Break_CB) & Handedness == "R")
+cbl <- Pitching %>% filter(!is.na(Spin_CB) & !is.na(CSW_CB) & !is.na(Rel_X_CB) & !is.na(Rel_Z_CB) & !is.na(Extension_CB) & !is.na(Max_Velo_CB) & !is.na(Avg_Velo_CB) & !is.na(H_Break_CB) & !is.na(V_Break_CB) & Handedness == "L")
+test_cbr <- test %>% filter(!is.na(Spin_CB) & !is.na(CSW_CB) & !is.na(Rel_X_CB) & !is.na(Rel_Z_CB) & !is.na(Extension_CB) & !is.na(Max_Velo_CB) & !is.na(Avg_Velo_CB) & !is.na(H_Break_CB) & !is.na(V_Break_CB) & Handedness == "R")
+test_cbl <- test %>% filter(!is.na(Spin_CB) & !is.na(CSW_CB) & !is.na(Rel_X_CB) & !is.na(Rel_Z_CB) & !is.na(Extension_CB) & !is.na(Max_Velo_CB) & !is.na(Avg_Velo_CB) & !is.na(H_Break_CB) & !is.na(V_Break_CB) & Handedness == "L")
+
+#RF for CB SwStr
+trControl <- trainControl(method = "cv", ##The method used to resample the dataset
+                          number = 10)
+cb_swstr_rfr <- caret::train(SwStr_CB ~ Avg_Velo_CB + H_Break_CB + V_Break_CB, data = cbr,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+cb_swstr_rfl <- caret::train(SwStr_CB ~ Avg_Velo_CB + H_Break_CB + V_Break_CB, data = cbl,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+cb_rf <- caret::train(SwStr_CB ~ Avg_Velo_CB + H_Break_CB + V_Break_CB + Rel_Z_CH + Rel_X_CH, data = cb,
+                             method = "rf",
+                             trControl = trControl,
+                             importance = TRUE, na.action=na.exclude)
+cb_rf
+cb_swstr_rfr
+cb_swstr_rfl
+varImp(cb_rf)
+varImp(cb_swstr_rfr)
+varImp(cb_swstr_rfl)
+
+#Analyze the SwStr RF
+pred_p <- predict(object = cb_swstr_rfr, newdata = test_cbr)
+caret::RMSE(test_cbr$SwStr_CB, pred_p)
+caret::MAE(test_cbr$SwStr_CB, pred_p)
+
+pred_p <- predict(object = cb_swstr_rfl, newdata = test_cbl)
+caret::RMSE(test_cbl$SwStr_CB, pred_p)
+caret::MAE(test_cbl$SwStr_CB, pred_p)
+
+#Predictions for people
+cbr$swstr_cb_pred <- predict(object = cb_swstr_rfr, newdata = cbr)
+cbr <- cbr[, c("pitcher", "player_name", "year", "n_breaking_formatted.x", "n_cukc_formatted", "N_CB", "Rel_X_CB", "Rel_Z_CB", "Extension_CB", "Max_Velo_CB", "Avg_Velo_CB", "Spin_CB", "H_Break_CB", "V_Break_CB", "xwOBA_CB", "SwStr_CB", "CSW_CB", "swstr_cb_pred")]
+cbl$swstr_cb_pred <- predict(object = cb_swstr_rfl, newdata = cbl)
+cbl <- cbl[, c("pitcher", "player_name", "year", "n_breaking_formatted.x", "n_cukc_formatted", "N_CB", "Rel_X_CB", "Rel_Z_CB", "Extension_CB", "Max_Velo_CB", "Avg_Velo_CB", "Spin_CB", "H_Break_CB", "V_Break_CB", "xwOBA_CB", "SwStr_CB", "CSW_CB", "swstr_cb_pred")]
+cb <- rbind(cbl, cbr)
+cb$swstr_cb_pred <- predict(object = cb_rf, newdata = cb)
+cb <- cb[, c("pitcher", "player_name", "year", "n_breaking_formatted.x.x", "n_cukc_formatted", "N_CB", "Rel_X_CB", "Rel_Z_CB", "Extension_CB", "Max_Velo_CB", "Avg_Velo_CB", "Spin_CB", "H_Break_CB", "V_Break_CB", "xwOBA_CB", "SwStr_CB", "CSW_CB", "swstr_cb_pred")]
+View(cb)
+
+
+
+
+#Joining all the predicted data frames together
+p1 <- full_join(fb, ch, by = c('player_name', "year", "pitcher"))
+p2 <- full_join(p1, sl, by = c('player_name', "year", "pitcher"))
+p3 <- full_join(p2, cb, by = c('player_name', "year", "pitcher"))
+View(p3)
+
+#Creating a column for the best breaking ball rating
+pitching <- p3 %>% group_by(player_name, year) %>% mutate(MaxBB = max(swstr_sl_pred, swstr_cb_pred))
+test <- test %>% group_by(player_name, year) %>% mutate(MaxBB = max(csw_sl_pred, csw_cb_pred))
+
+write.csv(pitching, "PitchingNEW.csv")
+pitching <- read.csv("pitchingNEW.csv")
+performance <- read.csv("FGPitchers.csv")
+names(performance)[1] <- "player_name"
+names(performance)[2] <- "year"
+pitching <- merge(pitching, performance, by = c("player_name", "year"))
+pitching <- pitching %>% filter(!is.na(swstr_fb_pred) & !is.na(MaxBB) & !is.na(swstr_ch_pred) & !is.na(n_breaking_formatted) & !is.na(n_offspeed_formatted) & !is.na(n_fastball_formatted))
+View(pitching)
+
+#RF for Arsenal
+indexes <- sample(1:nrow(pitching), size = 0.25*nrow(pitching)) 
+test <- pitching[indexes,] #25%
+train <- pitching[-indexes,] #75%
+trControl <- trainControl(method = "cv", number = 10)
+arsenal_rf <- caret::train(xFIP ~ swstr_fb_pred + MaxBB + swstr_ch_pred, data = pitching,
+                           method = "rf",
+                           trControl = trControl,
+                           importance = TRUE, na.action=na.exclude)
+usage_arsenal_rf <- caret::train(xFIP ~ swstr_fb_pred * n_fastball_formatted + MaxBB * n_breaking_formatted + swstr_ch_pred * n_offspeed_formatted, data = pitching,
+                                 method = "rf",
+                                 trControl = trControl,
+                                 importance = TRUE, na.action=na.exclude)
+proj_rf <- caret::train(xFIP ~ swstr_fb_pred + MaxBB + swstr_ch_pred + p_bb_percent, data = pitching,
+                        method = "rf",
+                        trControl = trControl,
+                        importance = TRUE, na.action=na.exclude)
+usage_proj_rf <- caret::train(xFIP ~ swstr_fb_pred * n_fastball_formatted + MaxBB * n_breaking_formatted + swstr_ch_pred * n_offspeed_formatted + p_bb_percent, data = pitching,
+                              method = "rf",
+                              trControl = trControl,
+                              importance = TRUE, na.action=na.exclude)
+arsenal_rf
+usage_arsenal_rf
+proj_rf
+usage_proj_rf
+
+varImp(arsenal_rf)
+varImp(usage_arsenal_rf)
+varImp(proj_rf)
+varImp(usage_proj_rf)
+
+#Analyze the RF
+test <- test %>% filter(!is.na(swstr_fb_pred) & !is.na(MaxBB) & !is.na(swstr_ch_pred) & !is.na(n_breaking_formatted) & !is.na(n_offspeed_formatted) & !is.na(n_fastball_formatted))
+
+pred_p <- predict(object = arsenal_rf, newdata = test)
+caret::RMSE(test$xFIP, pred_p) # 0.71459, 0.7101881
+caret::MAE(test$xFIP, pred_p) # 0.5855663, 0.5748943
+cor(test$xFIP, pred_p) * cor(test$xFIP, pred_p) # 0.2578107, 0.2396592
+
+pred_p <- predict(object = usage_arsenal_rf, newdata = test)
+caret::RMSE(test$xFIP, pred_p) # 0.6652064, 0.6718195
+caret::MAE(test$xFIP, pred_p) # 0.5385896, 0.5361903
+cor(test$xFIP, pred_p) * cor(test$xFIP, pred_p) # 0.348066, 0.3132539
+
+pred_p <- predict(object = proj_rf, newdata = test)
+caret::RMSE(test$xFIP, pred_p) # 0.6487847, 0.6351685
+caret::MAE(test$xFIP, pred_p) # 0.5197091, 0.5061241
+cor(test$xFIP, pred_p) * cor(test$xFIP, pred_p) # 0.3752699, 0.3871218
+
+pred_p <- predict(object = usage_proj_rf, newdata = test)
+caret::RMSE(test$xFIP, pred_p) # 0.6210502, 0.6008043
+caret::MAE(test$xFIP, pred_p) # 0.488341, 0.4809064
+cor(test$xFIP, pred_p) * cor(test$xFIP, pred_p) # 0.4272817, 0.4609063
+
+
+#Predictions of the data
+pitching$arsenal_pred <- predict(object = arsenal_rf, newdata = pitching)
+pitching$urs_arsenal_pred <- predict(object = usage_arsenal_rf, newdata = pitching)
+pitching$FIP_pred <- predict(object = proj_rf, newdata = pitching)
+pitching$use_FIP_pred <- predict(object = usage_proj_rf, newdata = pitching)
+View(pitching)
+
+
+#Assign scouting grades to the arsenal scores and each pitch type
+#FB Grades
+pitching <- pitching %>% filter(!is.na(swstr_fb_pred))
+fbmean <- mean(pitching$swstr_fb_pred)
+fbsd <- sd(pitching$swstr_fb_pred)
+pitching <- pitching %>% mutate(FB_Grade = case_when(
+  (swstr_fb_pred < (fbmean + 0.5 * fbsd)) & (swstr_fb_pred > (fbmean - 0.5 * fbsd)) ~ 50,
+  (swstr_fb_pred < (fbmean + 0.5 * fbsd)) & (swstr_fb_pred >= fbmean) ~ 55,
+  (swstr_fb_pred < (fbmean + fbsd)) & (swstr_fb_pred >= (fbmean + 0.5 * fbsd)) ~ 60,
+  (swstr_fb_pred > (fbmean + fbsd)) & (swstr_fb_pred <= (fbmean + 1.5 * fbsd)) ~ 65,
+  (swstr_fb_pred > (fbmean + 1.5 * fbsd)) & (swstr_fb_pred <= (fbmean + 2 * fbsd)) ~ 70,
+  (swstr_fb_pred > (fbmean + 2 * fbsd)) & (swstr_fb_pred <= (fbmean + 2.5 * fbsd)) ~ 75,
+  (swstr_fb_pred > (fbmean + 2.5 * fbsd)) & (swstr_fb_pred <= (fbmean + 3 * fbsd)) ~ 80,
+  (swstr_fb_pred >= (fbmean + 3 * fbsd)) ~ 80,
+  (swstr_fb_pred > (fbmean - 0.5 * fbsd)) & (swstr_fb_pred <= fbmean) ~ 45,
+  (swstr_fb_pred > (fbmean - fbsd)) & (swstr_fb_pred <= (fbmean - 0.5 * fbsd)) ~ 40,
+  (swstr_fb_pred < (fbmean - fbsd)) & (swstr_fb_pred >= (fbmean - 1.5 * fbsd)) ~ 35,
+  (swstr_fb_pred < (fbmean - 1.5 * fbsd)) & (swstr_fb_pred >= (fbmean - 2 * fbsd)) ~ 30,
+  (swstr_fb_pred < (fbmean - 2 * fbsd)) & (swstr_fb_pred >= (fbmean - 2.5 * fbsd)) ~ 25,
+  (swstr_fb_pred < (fbmean - 2.5 * fbsd)) & (swstr_fb_pred >= (fbmean - 3 * fbsd)) ~ 20,
+  (swstr_fb_pred <= (fbmean - 3 * fbsd)) ~ 20
+))
+#CH Grades
+ch_mean <- mean(pitching$swstr_ch_pred)
+chsd <- sd(pitching$swstr_ch_pred)
+pitching <- pitching %>% mutate(CH_Grade = case_when(
+  (swstr_ch_pred < (ch_mean + 0.5 * chsd)) & (swstr_ch_pred > (ch_mean - 0.5 * chsd)) ~ 50,
+  (swstr_ch_pred < (ch_mean + 0.5 * chsd)) & (swstr_ch_pred >= ch_mean) ~ 55,
+  (swstr_ch_pred < (ch_mean + chsd)) & (swstr_ch_pred >= (ch_mean + 0.5 * chsd)) ~ 60,
+  (swstr_ch_pred > (ch_mean + chsd)) & (swstr_ch_pred <= (ch_mean + 1.5 * chsd)) ~ 65,
+  (swstr_ch_pred > (ch_mean + 1.5 * chsd)) & (swstr_ch_pred <= (ch_mean + 2 * chsd)) ~ 70,
+  (swstr_ch_pred > (ch_mean + 2 * chsd)) & (swstr_ch_pred <= (ch_mean + 2.5 * chsd)) ~ 75,
+  (swstr_ch_pred > (ch_mean + 2.5 * chsd)) & (swstr_ch_pred <= (ch_mean + 3 * chsd)) ~ 80,
+  (swstr_ch_pred >= (ch_mean + 3 * chsd)) ~ 80,
+  (swstr_ch_pred > (ch_mean - 0.5 * chsd)) & (swstr_ch_pred <= ch_mean) ~ 45,
+  (swstr_ch_pred > (ch_mean - chsd)) & (swstr_ch_pred <= (ch_mean - 0.5 * chsd)) ~ 40,
+  (swstr_ch_pred < (ch_mean - chsd)) & (swstr_ch_pred >= (ch_mean - 1.5 * chsd)) ~ 35,
+  (swstr_ch_pred < (ch_mean - 1.5 * chsd)) & (swstr_ch_pred >= (ch_mean - 2 * chsd)) ~ 30,
+  (swstr_ch_pred < (ch_mean - 2 * chsd)) & (swstr_ch_pred >= (ch_mean - 2.5 * chsd)) ~ 25,
+  (swstr_ch_pred < (ch_mean - 2.5 * chsd)) & (swstr_ch_pred >= (ch_mean - 3 * chsd)) ~ 20,
+  (swstr_ch_pred <= (ch_mean - 3 * chsd)) ~ 20
+))
+#CB Grades
+cu <- pitching %>% filter(!is.na(swstr_cb_pred))
+cu_mean <- mean(cu$swstr_cb_pred)
+cusd <- sd(cu$swstr_cb_pred)
+pitching <- pitching %>% mutate(CB_Grade = case_when(
+  (swstr_cb_pred < (cu_mean + 0.5 * cusd)) & (swstr_cb_pred > (cu_mean - 0.5 * cusd)) ~ 50,
+  (swstr_cb_pred < (cu_mean + 0.5 * cusd)) & (swstr_cb_pred >= cu_mean) ~ 55,
+  (swstr_cb_pred < (cu_mean + cusd)) & (swstr_cb_pred >= (cu_mean + 0.5 * cusd)) ~ 60,
+  (swstr_cb_pred > (cu_mean + cusd)) & (swstr_cb_pred <= (cu_mean + 1.5 * cusd)) ~ 65,
+  (swstr_cb_pred > (cu_mean + 1.5 * cusd)) & (swstr_cb_pred <= (cu_mean + 2 * cusd)) ~ 70,
+  (swstr_cb_pred > (cu_mean + 2 * cusd)) & (swstr_cb_pred <= (cu_mean + 2.5 * cusd)) ~ 75,
+  (swstr_cb_pred > (cu_mean + 2.5 * cusd)) & (swstr_cb_pred <= (cu_mean + 3 * cusd)) ~ 80,
+  (swstr_cb_pred >= (cu_mean + 3 * cusd)) ~ 80,
+  (swstr_cb_pred > (cu_mean - 0.5 * cusd)) & (swstr_cb_pred <= cu_mean) ~ 45,
+  (swstr_cb_pred > (cu_mean - cusd)) & (swstr_cb_pred <= (cu_mean - 0.5 * cusd)) ~ 40,
+  (swstr_cb_pred < (cu_mean - cusd)) & (swstr_cb_pred >= (cu_mean - 1.5 * cusd)) ~ 35,
+  (swstr_cb_pred < (cu_mean - 1.5 * cusd)) & (swstr_cb_pred >= (cu_mean - 2 * cusd)) ~ 30,
+  (swstr_cb_pred < (cu_mean - 2 * cusd)) & (swstr_cb_pred >= (cu_mean - 2.5 * cusd)) ~ 25,
+  (swstr_cb_pred < (cu_mean - 2.5 * cusd)) & (swstr_cb_pred >= (cu_mean - 3 * cusd)) ~ 20,
+  (swstr_cb_pred <= (cu_mean - 3 * cusd)) ~ 20
+))
+#SL Grades
+sl <- pitching %>% filter(!is.na(swstr_sl_pred))
+sl_mean <- mean(sl$swstr_sl_pred)
+slsd <- sd(sl$swstr_sl_pred)
+pitching <- pitching %>% mutate(SL_Grade = case_when(
+  (swstr_sl_pred < (sl_mean + 0.5 * slsd)) & (swstr_sl_pred > (sl_mean - 0.5 * slsd)) ~ 50,
+  (swstr_sl_pred < (sl_mean + 0.5 * slsd)) & (swstr_sl_pred >= sl_mean) ~ 55,
+  (swstr_sl_pred < (sl_mean + slsd)) & (swstr_sl_pred >= (sl_mean + 0.5 * slsd)) ~ 60,
+  (swstr_sl_pred > (sl_mean + slsd)) & (swstr_sl_pred <= (sl_mean + 1.5 * slsd)) ~ 65,
+  (swstr_sl_pred > (sl_mean + 1.5 * slsd)) & (swstr_sl_pred <= (sl_mean + 2 * slsd)) ~ 70,
+  (swstr_sl_pred > (sl_mean + 2 * slsd)) & (swstr_sl_pred <= (sl_mean + 2.5 * slsd)) ~ 75,
+  (swstr_sl_pred > (sl_mean + 2.5 * slsd)) & (swstr_sl_pred <= (sl_mean + 3 * slsd)) ~ 80,
+  (swstr_sl_pred >= (sl_mean + 3 * slsd)) ~ 80,
+  (swstr_sl_pred > (sl_mean - 0.5 * slsd)) & (swstr_sl_pred <= sl_mean) ~ 45,
+  (swstr_sl_pred > (sl_mean - slsd)) & (swstr_sl_pred <= (sl_mean - 0.5 * slsd)) ~ 40,
+  (swstr_sl_pred < (sl_mean - slsd)) & (swstr_sl_pred >= (sl_mean - 1.5 * slsd)) ~ 35,
+  (swstr_sl_pred < (sl_mean - 1.5 * slsd)) & (swstr_sl_pred >= (sl_mean - 2 * slsd)) ~ 30,
+  (swstr_sl_pred < (sl_mean - 2 * slsd)) & (swstr_sl_pred >= (sl_mean - 2.5 * slsd)) ~ 25,
+  (swstr_sl_pred < (sl_mean - 2.5 * slsd)) & (swstr_sl_pred >= (sl_mean - 3 * slsd)) ~ 20,
+  (swstr_sl_pred <= (sl_mean - 3 * slsd)) ~ 20
+))
+#Arsenal Grades
+ars_mean <- mean(pitching$arsenal_pred)
+arssd <- sd(pitching$arsenal_pred)
+pitching <- pitching %>% mutate(ARS_Grade = case_when(
+  (arsenal_pred < (ars_mean + 0.5 * arssd)) & (arsenal_pred > (ars_mean - 0.5 * arssd)) ~ 50,
+  (arsenal_pred < (ars_mean + 0.5 * arssd)) & (arsenal_pred >= ars_mean) ~ 45,
+  (arsenal_pred < (ars_mean + arssd)) & (arsenal_pred >= (ars_mean + 0.5 * arssd)) ~ 40,
+  (arsenal_pred > (ars_mean + arssd)) & (arsenal_pred <= (ars_mean + 1.5 * arssd)) ~ 35,
+  (arsenal_pred > (ars_mean + 1.5 * arssd)) & (arsenal_pred <= (ars_mean + 2 * arssd)) ~ 30,
+  (arsenal_pred > (ars_mean + 2 * arssd)) & (arsenal_pred <= (ars_mean + 2.5 * arssd)) ~ 25,
+  (arsenal_pred > (ars_mean + 2.5 * arssd)) & (arsenal_pred <= (ars_mean + 3 * arssd)) ~ 20,
+  (arsenal_pred >= (ars_mean + 3 * arssd)) ~ 20,
+  (arsenal_pred > (ars_mean - 0.5 * arssd)) & (arsenal_pred <= ars_mean) ~ 55,
+  (arsenal_pred > (ars_mean - arssd)) & (arsenal_pred <= (ars_mean - 0.5 * arssd)) ~ 60,
+  (arsenal_pred < (ars_mean - arssd)) & (arsenal_pred >= (ars_mean - 1.5 * arssd)) ~ 65,
+  (arsenal_pred < (ars_mean - 1.5 * arssd)) & (arsenal_pred >= (ars_mean - 2 * arssd)) ~ 70,
+  (arsenal_pred < (ars_mean - 2 * arssd)) & (arsenal_pred >= (ars_mean - 2.5 * arssd)) ~ 75,
+  (arsenal_pred < (ars_mean - 2.5 * arssd)) & (arsenal_pred >= (ars_mean - 3 * arssd)) ~ 80,
+  (arsenal_pred <= (ars_mean - 3 * arssd)) ~ 80
+))
+#Arsenal Usage Grades
+urs_ars_mean <- mean(pitching$urs_arsenal_pred)
+ursarssd <- sd(pitching$urs_arsenal_pred)
+pitching <- pitching %>% mutate(USE_ARS_Grade = case_when(
+  (urs_arsenal_pred < (urs_ars_mean + 0.5 * ursarssd)) & (urs_arsenal_pred > (urs_ars_mean - 0.5 * ursarssd)) ~ 50,
+  (urs_arsenal_pred < (urs_ars_mean + 0.5 * ursarssd)) & (urs_arsenal_pred >= urs_ars_mean) ~ 45,
+  (urs_arsenal_pred < (urs_ars_mean + ursarssd)) & (urs_arsenal_pred >= (urs_ars_mean + 0.5 * ursarssd)) ~ 40,
+  (urs_arsenal_pred > (urs_ars_mean + ursarssd)) & (urs_arsenal_pred <= (urs_ars_mean + 1.5 * ursarssd)) ~ 35,
+  (urs_arsenal_pred > (urs_ars_mean + 1.5 * ursarssd)) & (urs_arsenal_pred <= (urs_ars_mean + 2 * ursarssd)) ~ 30,
+  (urs_arsenal_pred > (urs_ars_mean + 2 * ursarssd)) & (urs_arsenal_pred <= (urs_ars_mean + 2.5 * ursarssd)) ~ 25,
+  (urs_arsenal_pred > (urs_ars_mean + 2.5 * ursarssd)) & (urs_arsenal_pred <= (urs_ars_mean + 3 * ursarssd)) ~ 20,
+  (urs_arsenal_pred >= (urs_ars_mean + 3 * ursarssd)) ~ 20,
+  (urs_arsenal_pred > (urs_ars_mean - 0.5 * ursarssd)) & (urs_arsenal_pred <= urs_ars_mean) ~ 55,
+  (urs_arsenal_pred > (urs_ars_mean - ursarssd)) & (urs_arsenal_pred <= (urs_ars_mean - 0.5 * ursarssd)) ~ 60,
+  (urs_arsenal_pred < (urs_ars_mean - ursarssd)) & (urs_arsenal_pred >= (urs_ars_mean - 1.5 * ursarssd)) ~ 65,
+  (urs_arsenal_pred < (urs_ars_mean - 1.5 * ursarssd)) & (urs_arsenal_pred >= (urs_ars_mean - 2 * ursarssd)) ~ 70,
+  (urs_arsenal_pred < (urs_ars_mean - 2 * ursarssd)) & (urs_arsenal_pred >= (urs_ars_mean - 2.5 * ursarssd)) ~ 75,
+  (urs_arsenal_pred < (urs_ars_mean - 2.5 * ursarssd)) & (urs_arsenal_pred >= (urs_ars_mean - 3 * ursarssd)) ~ 80,
+  (urs_arsenal_pred <= (urs_ars_mean - 3 * ursarssd)) ~ 80
+))
+#Present Value
+FIP_mean <- mean(pitching$FIP_pred)
+FIPsd <- sd(pitching$FIP_pred)
+pitching <- pitching %>% mutate(Pres_Grade = case_when(
+  (FIP_pred < (FIP_mean + 0.5 * FIPsd)) & (FIP_pred > (FIP_mean - 0.5 * FIPsd)) ~ 50,
+  (FIP_pred < (FIP_mean + 0.5 * FIPsd)) & (FIP_pred >= FIP_mean) ~ 45,
+  (FIP_pred < (FIP_mean + FIPsd)) & (FIP_pred >= (FIP_mean + 0.5 * FIPsd)) ~ 40,
+  (FIP_pred > (FIP_mean + FIPsd)) & (FIP_pred <= (FIP_mean + 1.5 * FIPsd)) ~ 35,
+  (FIP_pred > (FIP_mean + 1.5 * FIPsd)) & (FIP_pred <= (FIP_mean + 2 * FIPsd)) ~ 30,
+  (FIP_pred > (FIP_mean + 2 * FIPsd)) & (FIP_pred <= (FIP_mean + 2.5 * FIPsd)) ~ 25,
+  (FIP_pred > (FIP_mean + 2.5 * FIPsd)) & (FIP_pred <= (FIP_mean + 3 * FIPsd)) ~ 20,
+  (FIP_pred >= (FIP_mean + 3 * FIPsd)) ~ 20,
+  (FIP_pred > (FIP_mean - 0.5 * FIPsd)) & (FIP_pred <= FIP_mean) ~ 55,
+  (FIP_pred > (FIP_mean - FIPsd)) & (FIP_pred <= (FIP_mean - 0.5 * FIPsd)) ~ 60,
+  (FIP_pred < (FIP_mean - FIPsd)) & (FIP_pred >= (FIP_mean - 1.5 * FIPsd)) ~ 65,
+  (FIP_pred < (FIP_mean - 1.5 * FIPsd)) & (FIP_pred >= (FIP_mean - 2 * FIPsd)) ~ 70,
+  (FIP_pred < (FIP_mean - 2 * FIPsd)) & (FIP_pred >= (FIP_mean - 2.5 * FIPsd)) ~ 75,
+  (FIP_pred < (FIP_mean - 2.5 * FIPsd)) & (FIP_pred >= (FIP_mean - 3 * FIPsd)) ~ 80,
+  (FIP_pred <= (FIP_mean - 3 * FIPsd)) ~ 80
+))
+#Present Value Usage
+use_FIP_mean <- mean(pitching$use_FIP_pred)
+useFIPsd <- sd(pitching$use_FIP_pred)
+pitching <- pitching %>% mutate(USE_Pres_Grade = case_when(
+  (use_FIP_pred < (use_FIP_mean + 0.5 * useFIPsd)) & (use_FIP_pred > (use_FIP_mean - 0.5 * useFIPsd)) ~ 50,
+  (use_FIP_pred < (use_FIP_mean + 0.5 * useFIPsd)) & (use_FIP_pred >= use_FIP_mean) ~ 45,
+  (use_FIP_pred < (use_FIP_mean + useFIPsd)) & (use_FIP_pred >= (use_FIP_mean + 0.5 * useFIPsd)) ~ 40,
+  (use_FIP_pred > (use_FIP_mean + useFIPsd)) & (use_FIP_pred <= (use_FIP_mean + 1.5 * useFIPsd)) ~ 35,
+  (use_FIP_pred > (use_FIP_mean + 1.5 * useFIPsd)) & (use_FIP_pred <= (use_FIP_mean + 2 * useFIPsd)) ~ 30,
+  (use_FIP_pred > (use_FIP_mean + 2 * useFIPsd)) & (use_FIP_pred <= (use_FIP_mean + 2.5 * useFIPsd)) ~ 25,
+  (use_FIP_pred > (use_FIP_mean + 2.5 * useFIPsd)) & (use_FIP_pred <= (use_FIP_mean + 3 * useFIPsd)) ~ 20,
+  (use_FIP_pred >= (use_FIP_mean + 3 * useFIPsd)) ~ 20,
+  (use_FIP_pred > (use_FIP_mean - 0.5 * useFIPsd)) & (use_FIP_pred <= use_FIP_mean) ~ 55,
+  (use_FIP_pred > (use_FIP_mean - useFIPsd)) & (use_FIP_pred <= (use_FIP_mean - 0.5 * useFIPsd)) ~ 60,
+  (use_FIP_pred < (use_FIP_mean - useFIPsd)) & (use_FIP_pred >= (use_FIP_mean - 1.5 * useFIPsd)) ~ 65,
+  (use_FIP_pred < (use_FIP_mean - 1.5 * useFIPsd)) & (use_FIP_pred >= (use_FIP_mean - 2 * useFIPsd)) ~ 70,
+  (use_FIP_pred < (use_FIP_mean - 2 * useFIPsd)) & (use_FIP_pred >= (use_FIP_mean - 2.5 * useFIPsd)) ~ 75,
+  (use_FIP_pred < (use_FIP_mean - 2.5 * useFIPsd)) & (use_FIP_pred >= (use_FIP_mean - 3 * useFIPsd)) ~ 80,
+  (use_FIP_pred <= (use_FIP_mean - 3 * useFIPsd)) ~ 80
+))
+
+View(pitching)
+write.csv(pitching, "Final Grades.csv")
+
+```
