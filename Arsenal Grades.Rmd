@@ -224,7 +224,7 @@ p2 <- full_join(p1, sl, by = c('player_name', "year", "pitcher"))
 p3 <- full_join(p2, cb, by = c('player_name', "year", "pitcher"))
 View(p3)
 
-#Creating a column for the best breaking ball rating
+#Creating a column for the best breaking ball rating. I had to put this data into excel to get the Max BB.
 pitching <- p3 %>% group_by(player_name, year) %>% mutate(MaxBB = max(swstr_sl_pred, swstr_cb_pred))
 test <- test %>% group_by(player_name, year) %>% mutate(MaxBB = max(csw_sl_pred, csw_cb_pred))
 
@@ -237,7 +237,7 @@ pitching <- merge(pitching, performance, by = c("player_name", "year"))
 pitching <- pitching %>% filter(!is.na(swstr_fb_pred) & !is.na(MaxBB) & !is.na(swstr_ch_pred) & !is.na(n_breaking_formatted) & !is.na(n_offspeed_formatted) & !is.na(n_fastball_formatted))
 View(pitching)
 
-#RF for Arsenal
+#RF for Arsenals
 indexes <- sample(1:nrow(pitching), size = 0.25*nrow(pitching)) 
 test <- pitching[indexes,] #25%
 train <- pitching[-indexes,] #75%
